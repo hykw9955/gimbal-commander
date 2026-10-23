@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Gimbal Commander</string>
+    <string name="accessibility_service_description">ジンバルのBluetoothリモコンのキー入力をキャプチャし、カメラ操作に割り当てるためのユーザー補助サービスです。</string>
+</resources>
+
