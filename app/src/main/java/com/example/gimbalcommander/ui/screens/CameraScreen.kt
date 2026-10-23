@@ -44,7 +44,8 @@ fun CameraScreen(
                 CameraAction.VOLUME_DOWN,
                 CameraAction.VOLUME_UP,
                 CameraAction.CAMERA_KEY,
-                CameraAction.TAP_SHUTTER -> {
+                CameraAction.TAP_SHUTTER,
+                CameraAction.SONY_NATIVE_SHUTTER -> {
                     message = "撮影中..."
                     cameraManager.takePicture(
                         onSuccess = { file ->
@@ -56,11 +57,11 @@ fun CameraScreen(
                         }
                     )
                 }
-                CameraAction.ZOOM_IN, CameraAction.PINCH_ZOOM_IN -> {
+                CameraAction.ZOOM_IN, CameraAction.PINCH_ZOOM_IN, CameraAction.SONY_NATIVE_ZOOM_IN -> {
                     cameraManager.zoomIn(0.2f)
                     message = "ズームイン (+)"
                 }
-                CameraAction.ZOOM_OUT, CameraAction.PINCH_ZOOM_OUT -> {
+                CameraAction.ZOOM_OUT, CameraAction.PINCH_ZOOM_OUT, CameraAction.SONY_NATIVE_ZOOM_OUT -> {
                     cameraManager.zoomOut(0.2f)
                     message = "ズームアウト (-)"
                 }

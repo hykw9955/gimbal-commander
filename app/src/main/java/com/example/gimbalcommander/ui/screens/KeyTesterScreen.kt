@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +42,9 @@ fun KeyTesterScreen(
     val connectedDeviceName by viewModel.connectedBleDeviceName.collectAsState()
     val latestBleData by viewModel.latestBleData.collectAsState()
     val bleMappings by viewModel.bleMappings.collectAsState()
+
+    val isSonyAdvertising by viewModel.isSonyEmulatorAdvertising.collectAsState()
+    val sonyConnectedCount by viewModel.sonyConnectedDeviceCount.collectAsState()
 
     val shutterXRatio by viewModel.shutterXRatio.collectAsState()
     val shutterYRatio by viewModel.shutterYRatio.collectAsState()
@@ -93,6 +97,55 @@ fun KeyTesterScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        item {
+            // Sony純正リモコン (RMT-P1BT) 偽装エミュレーターカード
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isSonyAdvertising) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Sensors,
+                            contentDescription = "Sony Emulator",
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Sony RMT-P1BT 偽装モード",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (isSonyAdvertising) "発信中 (RMT-P1BT) | 接続数: ${sonyConnectedCount}台" else "停止中 (タップして発信開始)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isSonyAdvertising) Color(0xFF2E7D32) else Color.Gray
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = { viewModel.toggleSonyEmulator(context) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isSonyAdvertising) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text(if (isSonyAdvertising) "偽装停止" else "偽装開始")
+                    }
+                }
+            }
         }
 
         item {

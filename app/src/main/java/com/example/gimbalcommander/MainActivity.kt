@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
             permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
+            permissionsToRequest.add(Manifest.permission.BLUETOOTH_ADVERTISE)
         } else {
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }

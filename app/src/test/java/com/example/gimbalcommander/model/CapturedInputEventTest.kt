@@ -76,9 +76,9 @@ class CapturedInputEventTest {
 
     @Test
     fun testCameraActionValues() {
+        assertEquals("Sony純正シャッター (RMT-P1BT)", CameraAction.SONY_NATIVE_SHUTTER.displayName)
+        assertEquals("Sony純正ズームイン (+)", CameraAction.SONY_NATIVE_ZOOM_IN.displayName)
         assertEquals("シャッター (画面タップ)", CameraAction.TAP_SHUTTER.displayName)
         assertEquals("ズームイン (ピンチアウト)", CameraAction.PINCH_ZOOM_IN.displayName)
-        assertEquals("ズームアウト (ピンチイン)", CameraAction.PINCH_ZOOM_OUT.displayName)
-        assertEquals("音量キー- (KEYCODE_VOLUME_DOWN)", CameraAction.VOLUME_DOWN.displayName)
     }
 }

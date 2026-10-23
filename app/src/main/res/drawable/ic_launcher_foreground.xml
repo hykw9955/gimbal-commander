@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ジンバルアーム（外枠フレーム） -->
+    <path
+        android:pathData="M34,32 C34,26 74,26 74,32 L74,70 C74,80 34,80 34,70 Z"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"/>
+
+    <!-- ジンバル軸モーター -->
+    <path
+        android:pathData="M54,22 L54,28 M54,80 L54,86"
+        android:strokeColor="#0284C7"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"/>
+
+    <!-- カメラ本体（中央） -->
+    <path
+        android:pathData="M38,42 h32 a4,4 0 0,1 4,4 v20 a4,4 0 0,1 -4,4 h-32 a4,4 0 0,1 -4,-4 v-20 a4,4 0 0,1 4,-4 Z"
+        android:fillColor="#1E293B"
+        android:strokeColor="#F8FAFC"
+        android:strokeWidth="2.5"/>
+
+    <!-- カメラレンズ（内円） -->
+    <path
+        android:pathData="M54,46 A8,8 0 1,0 54,62 A8,8 0 1,0 54,46 Z"
+        android:fillColor="#38BDF8"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"/>
+
+    <!-- Bluetooth 電波波形（右上アクセント） -->
+    <path
+        android:pathData="M70,36 C74,34 78,38 78,42 M74,32 C80,28 86,36 86,42"
+        android:strokeColor="#60A5FA"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"/>
+</vector>

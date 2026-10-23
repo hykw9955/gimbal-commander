@@ -12,6 +12,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import com.example.gimbalcommander.data.ble.GimbalBleManager
+import com.example.gimbalcommander.data.ble.SonyRemoteEmulator
 import com.example.gimbalcommander.model.CameraAction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -140,6 +141,9 @@ class GimbalAccessibilityService : AccessibilityService() {
         }
 
         when (action) {
+            CameraAction.SONY_NATIVE_SHUTTER -> SonyRemoteEmulator.getInstance(this).sendSonyShutterCommand()
+            CameraAction.SONY_NATIVE_ZOOM_IN -> SonyRemoteEmulator.getInstance(this).sendSonyZoomInCommand()
+            CameraAction.SONY_NATIVE_ZOOM_OUT -> SonyRemoteEmulator.getInstance(this).sendSonyZoomOutCommand()
             CameraAction.TAP_SHUTTER -> dispatchScreenTap(shutterXRatio, shutterYRatio)
             CameraAction.FOCUS_AUTO -> dispatchScreenTap(focusXRatio, focusYRatio)
             CameraAction.SWITCH_CAMERA -> dispatchScreenTap(switchCameraXRatio, switchCameraYRatio)

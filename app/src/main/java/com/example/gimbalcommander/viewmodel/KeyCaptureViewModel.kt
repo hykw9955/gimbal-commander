@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gimbalcommander.data.ble.BleConnectionState
 import com.example.gimbalcommander.data.ble.GimbalBleManager
+import com.example.gimbalcommander.data.ble.SonyRemoteEmulator
 import com.example.gimbalcommander.model.CameraAction
 import com.example.gimbalcommander.model.CapturedInputEvent
 import com.example.gimbalcommander.service.GimbalAccessibilityService
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 class KeyCaptureViewModel : ViewModel() {
 
     private var bleManager: GimbalBleManager? = null
+    private var sonyEmulator: SonyRemoteEmulator? = null
 
     // BLE接続状態
     private val _bleConnectionState = MutableStateFlow(BleConnectionState.DISCONNECTED)
@@ -28,6 +30,13 @@ class KeyCaptureViewModel : ViewModel() {
 
     private val _connectedBleDeviceName = MutableStateFlow<String?>(null)
     val connectedBleDeviceName: StateFlow<String?> = _connectedBleDeviceName.asStateFlow()
+
+    // Sony エミュレーター状態
+    private val _isSonyEmulatorAdvertising = MutableStateFlow(false)
+    val isSonyEmulatorAdvertising: StateFlow<Boolean> = _isSonyEmulatorAdvertising.asStateFlow()
+
+    private val _sonyConnectedDeviceCount = MutableStateFlow(0)
+    val sonyConnectedDeviceCount: StateFlow<Int> = _sonyConnectedDeviceCount.asStateFlow()
 
     // 直近のBLE入力
     private val _latestBleData = MutableStateFlow<CapturedInputEvent.BleData?>(null)
@@ -158,6 +167,34 @@ class KeyCaptureViewModel : ViewModel() {
         manager.startAutoConnect()
     }
 
+    fun initSonyEmulator(context: Context) {
+        if (sonyEmulator != null) return
+        val emulator = SonyRemoteEmulator.getInstance(context.applicationContext)
+        sonyEmulator = emulator
+
+        viewModelScope.launch {
+            emulator.isAdvertising.collect { isAdv ->
+                _isSonyEmulatorAdvertising.value = isAdv
+            }
+        }
+
+        viewModelScope.launch {
+            emulator.connectedDeviceCount.collect { count ->
+                _sonyConnectedDeviceCount.value = count
+            }
+        }
+    }
+
+    fun toggleSonyEmulator(context: Context) {
+        initSonyEmulator(context)
+        val emulator = sonyEmulator ?: return
+        if (emulator.isAdvertising.value) {
+            emulator.stopEmulation()
+        } else {
+            emulator.startEmulation()
+        }
+    }
+
     fun toggleBleConnection() {
         val manager = bleManager ?: return
         when (_bleConnectionState.value) {
@@ -261,5 +298,6 @@ class KeyCaptureViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         bleManager?.userDisconnect()
+        sonyEmulator?.stopEmulation()
     }
 }

@@ -66,6 +66,9 @@ sealed class CapturedInputEvent {
 }
 
 enum class CameraAction(val displayName: String) {
+    SONY_NATIVE_SHUTTER("Sony純正シャッター (RMT-P1BT)"),
+    SONY_NATIVE_ZOOM_IN("Sony純正ズームイン (+)"),
+    SONY_NATIVE_ZOOM_OUT("Sony純正ズームアウト (-)"),
     TAP_SHUTTER("シャッター (画面タップ)"),
     PINCH_ZOOM_IN("ズームイン (ピンチアウト)"),
     PINCH_ZOOM_OUT("ズームアウト (ピンチイン)"),
