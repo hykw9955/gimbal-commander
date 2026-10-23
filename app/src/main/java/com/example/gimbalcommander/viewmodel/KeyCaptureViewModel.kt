@@ -1,10 +1,12 @@
 package com.example.gimbalcommander.viewmodel
 
+import android.app.Application
 import android.content.Context
 import android.view.KeyEvent
 import android.view.MotionEvent
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gimbalcommander.data.AppSettings
 import com.example.gimbalcommander.data.ble.BleConnectionState
 import com.example.gimbalcommander.data.ble.GimbalBleManager
 import com.example.gimbalcommander.data.ble.SonyRemoteEmulator
@@ -19,7 +21,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class KeyCaptureViewModel : ViewModel() {
+class KeyCaptureViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val appSettings = AppSettings(application)
 
     private var bleManager: GimbalBleManager? = null
     private var sonyEmulator: SonyRemoteEmulator? = null
@@ -42,43 +46,39 @@ class KeyCaptureViewModel : ViewModel() {
     private val _latestBleData = MutableStateFlow<CapturedInputEvent.BleData?>(null)
     val latestBleData: StateFlow<CapturedInputEvent.BleData?> = _latestBleData.asStateFlow()
 
-    // BLEデータマッピング (hexValue -> CameraAction)
-    private val _bleMappings = MutableStateFlow<Map<String, CameraAction>>(
-        mapOf(
-            "00-00-30" to CameraAction.TAP_SHUTTER // デフォルトサンプル割り当て (画面タップシャッター)
-        )
-    )
+    // BLEデータマッピング
+    private val _bleMappings = MutableStateFlow<Map<String, CameraAction>>(emptyMap())
     val bleMappings: StateFlow<Map<String, CameraAction>> = _bleMappings.asStateFlow()
 
     // 画面ジェスチャー座標設定
-    private val _shutterXRatio = MutableStateFlow(0.50f)
+    private val _shutterXRatio = MutableStateFlow(appSettings.shutterXRatio)
     val shutterXRatio: StateFlow<Float> = _shutterXRatio.asStateFlow()
 
-    private val _shutterYRatio = MutableStateFlow(0.85f)
+    private val _shutterYRatio = MutableStateFlow(appSettings.shutterYRatio)
     val shutterYRatio: StateFlow<Float> = _shutterYRatio.asStateFlow()
 
-    private val _focusXRatio = MutableStateFlow(0.50f)
+    private val _focusXRatio = MutableStateFlow(appSettings.focusXRatio)
     val focusXRatio: StateFlow<Float> = _focusXRatio.asStateFlow()
 
-    private val _focusYRatio = MutableStateFlow(0.50f)
+    private val _focusYRatio = MutableStateFlow(appSettings.focusYRatio)
     val focusYRatio: StateFlow<Float> = _focusYRatio.asStateFlow()
 
-    private val _switchCameraXRatio = MutableStateFlow(0.85f)
+    private val _switchCameraXRatio = MutableStateFlow(appSettings.switchCameraXRatio)
     val switchCameraXRatio: StateFlow<Float> = _switchCameraXRatio.asStateFlow()
 
-    private val _switchCameraYRatio = MutableStateFlow(0.82f)
+    private val _switchCameraYRatio = MutableStateFlow(appSettings.switchCameraYRatio)
     val switchCameraYRatio: StateFlow<Float> = _switchCameraYRatio.asStateFlow()
 
-    private val _zoomCenterXRatio = MutableStateFlow(0.50f)
+    private val _zoomCenterXRatio = MutableStateFlow(appSettings.zoomCenterXRatio)
     val zoomCenterXRatio: StateFlow<Float> = _zoomCenterXRatio.asStateFlow()
 
-    private val _zoomCenterYRatio = MutableStateFlow(0.50f)
+    private val _zoomCenterYRatio = MutableStateFlow(appSettings.zoomCenterYRatio)
     val zoomCenterYRatio: StateFlow<Float> = _zoomCenterYRatio.asStateFlow()
 
-    private val _pinchDistancePx = MutableStateFlow(250f)
+    private val _pinchDistancePx = MutableStateFlow(appSettings.pinchDistancePx)
     val pinchDistancePx: StateFlow<Float> = _pinchDistancePx.asStateFlow()
 
-    private val _pinchDurationMs = MutableStateFlow(800L)
+    private val _pinchDurationMs = MutableStateFlow(appSettings.pinchDurationMs)
     val pinchDurationMs: StateFlow<Long> = _pinchDurationMs.asStateFlow()
 
     // イベント履歴（最新が先頭）
@@ -103,6 +103,16 @@ class KeyCaptureViewModel : ViewModel() {
     private val _triggeredAction = MutableSharedFlow<CameraAction>(extraBufferCapacity = 16)
     val triggeredAction: SharedFlow<CameraAction> = _triggeredAction.asSharedFlow()
 
+    init {
+        // 設定読み込み
+        val savedMappings = appSettings.getAllActionMappings()
+        if (savedMappings.isEmpty()) {
+            _bleMappings.value = mapOf("00-00-30" to CameraAction.TAP_SHUTTER)
+        } else {
+            _bleMappings.value = savedMappings
+        }
+    }
+
     fun updateGestureConfig(
         sXRatio: Float = _shutterXRatio.value,
         sYRatio: Float = _shutterYRatio.value,
@@ -126,17 +136,32 @@ class KeyCaptureViewModel : ViewModel() {
         _pinchDistancePx.value = distance
         _pinchDurationMs.value = durationMs
 
-        GimbalAccessibilityService.updateGestureConfig(
-            sXRatio = sXRatio,
-            sYRatio = sYRatio,
-            fXRatio = fXRatio,
-            fYRatio = fYRatio,
-            swXRatio = swXRatio,
-            swYRatio = swYRatio,
-            zXRatio = zXRatio,
-            zYRatio = zYRatio,
-            distance = distance,
-            durationMs = durationMs
+        // 設定の永続化
+        appSettings.shutterXRatio = sXRatio
+        appSettings.shutterYRatio = sYRatio
+        appSettings.focusXRatio = fXRatio
+        appSettings.focusYRatio = fYRatio
+        appSettings.switchCameraXRatio = swXRatio
+        appSettings.switchCameraYRatio = swYRatio
+        appSettings.zoomCenterXRatio = zXRatio
+        appSettings.zoomCenterYRatio = zYRatio
+        appSettings.pinchDistancePx = distance
+        appSettings.pinchDurationMs = durationMs
+    }
+
+    fun resetToDefaults() {
+        appSettings.resetToDefaults()
+        updateGestureConfig(
+            sXRatio = AppSettings.DEFAULT_SHUTTER_X,
+            sYRatio = AppSettings.DEFAULT_SHUTTER_Y,
+            fXRatio = AppSettings.DEFAULT_FOCUS_X,
+            fYRatio = AppSettings.DEFAULT_FOCUS_Y,
+            swXRatio = AppSettings.DEFAULT_SWITCH_X,
+            swYRatio = AppSettings.DEFAULT_SWITCH_Y,
+            zXRatio = AppSettings.DEFAULT_ZOOM_CENTER_X,
+            zYRatio = AppSettings.DEFAULT_ZOOM_CENTER_Y,
+            distance = AppSettings.DEFAULT_PINCH_DIST,
+            durationMs = AppSettings.DEFAULT_PINCH_DURATION
         )
     }
 
@@ -198,7 +223,7 @@ class KeyCaptureViewModel : ViewModel() {
     fun toggleBleConnection() {
         val manager = bleManager ?: return
         when (_bleConnectionState.value) {
-            BleConnectionState.DISCONNECTED -> manager.startAutoConnect()
+            BleConnectionState.DISCONNECTED, BleConnectionState.SLEEPING -> manager.startAutoConnect()
             BleConnectionState.SCANNING, BleConnectionState.CONNECTING, BleConnectionState.CONNECTED -> manager.userDisconnect()
         }
     }
@@ -220,7 +245,7 @@ class KeyCaptureViewModel : ViewModel() {
             put(hexValue, action)
         }
         _bleMappings.value = updatedMap
-        GimbalAccessibilityService.updateActionMappings(updatedMap)
+        appSettings.saveActionMapping(hexValue, action) // 永続化
     }
 
     fun onKeyEvent(event: KeyEvent): Boolean {

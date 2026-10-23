@@ -84,6 +84,21 @@ class SonyRemoteEmulator private constructor(private val context: Context) {
      * Sony RMT-P1BT リモコンの偽装アドバタイズおよびGATTサーバーを開始
      */
     fun startEmulation() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    context, android.Manifest.permission.BLUETOOTH_ADVERTISE
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "Missing BLUETOOTH_ADVERTISE permission.")
+                return
+            }
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    context, android.Manifest.permission.BLUETOOTH_CONNECT
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "Missing BLUETOOTH_CONNECT permission.")
+                return
+            }
+        }
+
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
             Log.e(TAG, "Bluetooth adapter disabled.")
             return
@@ -135,15 +150,25 @@ class SonyRemoteEmulator private constructor(private val context: Context) {
      * エミュレーションの停止（元のデバイス名を自動復元）
      */
     fun stopEmulation() {
-        try {
-            bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback)
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException stopping advertising", e)
+        val hasAdvertisePermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || androidx.core.content.ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.BLUETOOTH_ADVERTISE
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        
+        val hasConnectPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || androidx.core.content.ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.BLUETOOTH_CONNECT
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (hasAdvertisePermission) {
+            try {
+                bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback)
+            } catch (e: SecurityException) {
+                Log.e(TAG, "SecurityException stopping advertising", e)
+            }
         }
         _isAdvertising.value = false
 
         // 元のデバイス名を復元
-        if (originalDeviceName != null) {
+        if (originalDeviceName != null && hasConnectPermission) {
             try {
                 bluetoothAdapter?.name = originalDeviceName
                 Log.d(TAG, "Restored original Bluetooth device name: $originalDeviceName")
@@ -153,11 +178,13 @@ class SonyRemoteEmulator private constructor(private val context: Context) {
             }
         }
 
-        try {
-            bluetoothGattServer?.close()
-            bluetoothGattServer = null
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException closing gattServer", e)
+        if (hasConnectPermission) {
+            try {
+                bluetoothGattServer?.close()
+                bluetoothGattServer = null
+            } catch (e: SecurityException) {
+                Log.e(TAG, "SecurityException closing gattServer", e)
+            }
         }
 
         registeredDevices.clear()

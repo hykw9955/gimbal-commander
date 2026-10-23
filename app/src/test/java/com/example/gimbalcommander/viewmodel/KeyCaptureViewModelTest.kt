@@ -13,6 +13,8 @@ import org.junit.Before
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(manifest=org.robolectric.annotation.Config.NONE)
 class KeyCaptureViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -21,7 +23,8 @@ class KeyCaptureViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = KeyCaptureViewModel()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        viewModel = KeyCaptureViewModel(context)
     }
 
     @After

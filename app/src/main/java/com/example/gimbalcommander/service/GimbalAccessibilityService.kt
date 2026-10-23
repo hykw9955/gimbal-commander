@@ -117,7 +117,7 @@ class GimbalAccessibilityService : AccessibilityService() {
         }
 
         serviceScope.launch {
-            bleManager?.bleDataFlow?.collectLatest { bleData ->
+            bleManager?.bleDataFlow?.collect { bleData ->
                 Log.d(TAG, "Background BLE Data received: ${bleData.hexValue}")
                 val mappedAction = actionMappings[bleData.hexValue] ?: CameraAction.NONE
                 if (mappedAction != CameraAction.NONE) {
@@ -163,14 +163,21 @@ class GimbalAccessibilityService : AccessibilityService() {
 
     /**
      * 指定座標 (X %, Y %) への単一画面タップジェスチャー
+     * 横画面 (Landscape) の場合は座標を動的に補正する
      */
     fun dispatchScreenTap(xRatio: Float, yRatio: Float) {
         val displayMetrics = resources.displayMetrics
         val width = displayMetrics.widthPixels
         val height = displayMetrics.heightPixels
+        val orientation = resources.configuration.orientation
 
-        val tapX = width * xRatio
-        val tapY = height * yRatio
+        val (tapX, tapY) = if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            // 横画面の場合、縦画面設定時の座標を左へ90度回転したレイアウトにスワップ補正する
+            Pair(width * yRatio, height * (1.0f - xRatio))
+        } else {
+            // 縦画面（デフォルト設定通り）
+            Pair(width * xRatio, height * yRatio)
+        }
 
         val path = Path().apply {
             moveTo(tapX, tapY)
@@ -201,9 +208,14 @@ class GimbalAccessibilityService : AccessibilityService() {
         val displayMetrics = resources.displayMetrics
         val width = displayMetrics.widthPixels
         val height = displayMetrics.heightPixels
+        val orientation = resources.configuration.orientation
 
-        val cx = width * zoomCenterXRatio
-        val cy = height * zoomCenterYRatio
+        val (cx, cy) = if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            Pair(width * zoomCenterYRatio, height * (1.0f - zoomCenterXRatio))
+        } else {
+            Pair(width * zoomCenterXRatio, height * zoomCenterYRatio)
+        }
+
         val dist = pinchDistancePx
         val startOffset = pinchStartOffsetPx
 

@@ -23,7 +23,8 @@ enum class BleConnectionState(val label: String) {
     DISCONNECTED("未接続"),
     SCANNING("スキャン中..."),
     CONNECTING("接続中..."),
-    CONNECTED("接続完了")
+    CONNECTED("接続完了"),
+    SLEEPING("スリープ中 (再接続停止)")
 }
 
 @SuppressLint("MissingPermission", "StaticFieldLeak")
@@ -41,10 +42,13 @@ class GimbalBleManager private constructor(private val context: Context) {
             }
         }
 
-        // KMRCリモコンのUUID
         val SERVICE_UUID: UUID = UUID.fromString("c6470001-b82b-4dfb-b0e4-964a62b0e1d6")
         val CHARACTERISTIC_UUID: UUID = UUID.fromString("c6470002-b82b-4dfb-b0e4-964a62b0e1d6")
         val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+        
+        private const val MAX_RETRY_COUNT = 20
+        private const val BASE_RETRY_DELAY_MS = 3000L
+        private const val MAX_RETRY_DELAY_MS = 60000L
     }
 
     private val bluetoothManager: BluetoothManager? =
@@ -66,14 +70,13 @@ class GimbalBleManager private constructor(private val context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isScanning = false
 
-    // ユーザーが明示的に切断したかどうかのフラグ
     private var isUserDisconnected = false
+    private var reconnectAttemptCount = 0
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
             val name = device.name ?: result.scanRecord?.deviceName
-            Log.d(TAG, "Discovered device: $name (${device.address})")
 
             val serviceUuids = result.scanRecord?.serviceUuids
             val isTargetDevice = name?.contains("KMRC", ignoreCase = true) == true ||
@@ -94,11 +97,9 @@ class GimbalBleManager private constructor(private val context: Context) {
         }
     }
 
-    /**
-     * 自動再接続モードの起動（アプリ起動時等に呼び出す）
-     */
     fun startAutoConnect() {
         isUserDisconnected = false
+        reconnectAttemptCount = 0
         if (_connectionState.value == BleConnectionState.CONNECTED ||
             _connectionState.value == BleConnectionState.CONNECTING
         ) {
@@ -115,6 +116,14 @@ class GimbalBleManager private constructor(private val context: Context) {
     fun startScan() {
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
             Log.e(TAG, "Bluetooth is disabled or not supported.")
+            scheduleAutoReconnect()
+            return
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.BLUETOOTH_SCAN
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Log.e(TAG, "Missing BLUETOOTH_SCAN permission. Aborting scan.")
             scheduleAutoReconnect()
             return
         }
@@ -146,7 +155,7 @@ class GimbalBleManager private constructor(private val context: Context) {
                     _connectionState.value = BleConnectionState.DISCONNECTED
                     scheduleAutoReconnect()
                 }
-            }, 15000)
+            }, 10000)
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException during startScan", e)
             _connectionState.value = BleConnectionState.DISCONNECTED
@@ -158,6 +167,11 @@ class GimbalBleManager private constructor(private val context: Context) {
     fun stopScan() {
         if (!isScanning) return
         isScanning = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.BLUETOOTH_SCAN
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return
+        }
         try {
             bluetoothAdapter?.bluetoothLeScanner?.stopScan(scanCallback)
             Log.d(TAG, "BLE Scan stopped.")
@@ -167,6 +181,15 @@ class GimbalBleManager private constructor(private val context: Context) {
     }
 
     fun connectToDevice(device: BluetoothDevice) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.BLUETOOTH_CONNECT
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Log.e(TAG, "Missing BLUETOOTH_CONNECT permission. Aborting connect.")
+            _connectionState.value = BleConnectionState.DISCONNECTED
+            scheduleAutoReconnect()
+            return
+        }
+
         _connectionState.value = BleConnectionState.CONNECTING
         _connectedDeviceName.value = device.name ?: "KMRC"
         lastConnectedDevice = device
@@ -181,9 +204,6 @@ class GimbalBleManager private constructor(private val context: Context) {
         }
     }
 
-    /**
-     * ユーザー手動による明示的切断
-     */
     fun userDisconnect() {
         isUserDisconnected = true
         mainHandler.removeCallbacksAndMessages(null)
@@ -192,6 +212,13 @@ class GimbalBleManager private constructor(private val context: Context) {
 
     private fun disconnectInternal() {
         stopScan()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.BLUETOOTH_CONNECT
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            _connectionState.value = BleConnectionState.DISCONNECTED
+            _connectedDeviceName.value = null
+            return
+        }
         try {
             bluetoothGatt?.disconnect()
             bluetoothGatt?.close()
@@ -206,13 +233,28 @@ class GimbalBleManager private constructor(private val context: Context) {
     private fun scheduleAutoReconnect() {
         if (isUserDisconnected) return
 
+        if (reconnectAttemptCount >= MAX_RETRY_COUNT) {
+            Log.w(TAG, "Max reconnect attempts reached. Going to sleep to save battery.")
+            _connectionState.value = BleConnectionState.SLEEPING
+            return
+        }
+
+        reconnectAttemptCount++
+        
+        // Exponential Backoff: 3s, 6s, 12s, 24s, 48s, 60s, 60s...
+        val delay = Math.min(BASE_RETRY_DELAY_MS * Math.pow(2.0, (reconnectAttemptCount - 1).toDouble()).toLong(), MAX_RETRY_DELAY_MS)
+
         mainHandler.removeCallbacksAndMessages(null)
         mainHandler.postDelayed({
             if (!isUserDisconnected && _connectionState.value == BleConnectionState.DISCONNECTED) {
-                Log.d(TAG, "Auto reconnect triggered...")
-                startAutoConnect()
+                Log.d(TAG, "Auto reconnect triggered... (Attempt $reconnectAttemptCount, Delay: ${delay}ms)")
+                if (lastConnectedDevice != null) {
+                    connectToDevice(lastConnectedDevice!!)
+                } else {
+                    startScan()
+                }
             }
-        }, 3000)
+        }, delay)
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
@@ -221,6 +263,7 @@ class GimbalBleManager private constructor(private val context: Context) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "Connected to GATT server.")
                 _connectionState.value = BleConnectionState.CONNECTING
+                reconnectAttemptCount = 0 // 接続成功時にリトライカウントをリセット
                 try {
                     gatt.discoverServices()
                 } catch (e: SecurityException) {

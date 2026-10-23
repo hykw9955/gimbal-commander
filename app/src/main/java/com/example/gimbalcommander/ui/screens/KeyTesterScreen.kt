@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -205,14 +206,23 @@ fun KeyTesterScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Gesture, contentDescription = "Gesture Config")
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "画面ジェスチャー・座標設定",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Gesture, contentDescription = "Gesture Config")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "ジェスチャー座標設定 (縦画面基準)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                        IconButton(onClick = { viewModel.resetToDefaults() }) {
+                            Icon(Icons.Default.Restore, contentDescription = "デフォルトに戻す")
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -269,7 +279,7 @@ fun KeyTesterScreen(
 
                     // カメラ切替位置 X/Y%
                     Text(
-                        text = "カメラ切替位置 (右下): X=${(switchCameraXRatio * 100).toInt()}% , Y=${(switchCameraYRatio * 100).toInt()}%",
+                        text = "カメラ切替位置: X=${(switchCameraXRatio * 100).toInt()}% , Y=${(switchCameraYRatio * 100).toInt()}%",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -327,7 +337,7 @@ fun KeyTesterScreen(
                     containerColor = when (bleState) {
                         BleConnectionState.CONNECTED -> MaterialTheme.colorScheme.secondaryContainer
                         BleConnectionState.SCANNING, BleConnectionState.CONNECTING -> MaterialTheme.colorScheme.tertiaryContainer
-                        BleConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.surfaceVariant
+                        BleConnectionState.DISCONNECTED, BleConnectionState.SLEEPING -> MaterialTheme.colorScheme.surfaceVariant
                     }
                 ),
                 shape = RoundedCornerShape(12.dp)
@@ -344,7 +354,7 @@ fun KeyTesterScreen(
                             imageVector = when (bleState) {
                                 BleConnectionState.CONNECTED -> Icons.Default.BluetoothConnected
                                 BleConnectionState.SCANNING, BleConnectionState.CONNECTING -> Icons.Default.BluetoothSearching
-                                BleConnectionState.DISCONNECTED -> Icons.Default.Bluetooth
+                                BleConnectionState.DISCONNECTED, BleConnectionState.SLEEPING -> Icons.Default.Bluetooth
                             },
                             contentDescription = "BLE Status",
                             modifier = Modifier.size(28.dp)
@@ -383,7 +393,7 @@ fun KeyTesterScreen(
                     ) {
                         Text(
                             when (bleState) {
-                                BleConnectionState.DISCONNECTED -> "BLE接続"
+                                BleConnectionState.DISCONNECTED, BleConnectionState.SLEEPING -> "BLE接続"
                                 BleConnectionState.SCANNING -> "停止"
                                 BleConnectionState.CONNECTING -> "接続中"
                                 BleConnectionState.CONNECTED -> "切断"
